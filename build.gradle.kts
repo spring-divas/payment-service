@@ -1,5 +1,6 @@
 plugins {
 	java
+	checkstyle
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -12,6 +13,11 @@ java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(25)
 	}
+}
+
+checkstyle {
+	toolVersion = "13.7.0"
+	configFile = file("checks.xml")
 }
 
 repositories {
@@ -38,6 +44,7 @@ dependencies {
 	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testAnnotationProcessor("org.projectlombok:lombok")
+	testImplementation("com.h2database:h2")
 }
 
 tasks.withType<Test> {

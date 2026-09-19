@@ -3,11 +3,11 @@ package org.spring.divas.payment;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-//@SpringBootTest
-//class PaymentServiceApplicationTests {
-//
-//	@Test
-//	void contextLoads() {
-//	}
-//
-//}
+@SpringBootTest
+class PaymentApplicationTests {
+
+    @Test
+    void contextLoads() {
+    }
+
+}
