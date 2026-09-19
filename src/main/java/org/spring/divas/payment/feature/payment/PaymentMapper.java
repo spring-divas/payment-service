@@ -1,31 +1,15 @@
 package org.spring.divas.payment.feature.payment;
 
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
-@Component
-public class PaymentMapper {
+@Mapper(componentModel = "spring")
+public interface PaymentMapper {
 
-    public PaymentResponseDto toResponse(Payment payment) {
-        if (payment == null) {
-            return null;
-        }
+    PaymentResponseDto toResponse(Payment payment);
 
-        return new PaymentResponseDto(
-                payment.getId(),
-                payment.getOrderId(),
-                payment.getStatus(),
-                payment.getCreatedAt()
-        );
-    }
-
-    public Payment toEntity(PaymentRequestDto request) {
-        if (request == null) {
-            return null;
-        }
-
-        return Payment.builder()
-                .orderId(request.getOrderId())
-                .status(PaymentStatus.PENDING)
-                .build();
-    }
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "status", constant = "PENDING")
+    @Mapping(target = "createdAt", ignore = true)
+    Payment toEntity(PaymentRequestDto request);
 }
