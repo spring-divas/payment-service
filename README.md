@@ -44,12 +44,90 @@ The `payment-db` container should eventually show a **healthy** status.
 docker compose logs -f payment-service
 ```
 
+## Running with Kubernetes
+
+### 1. Configure `order-secret.yaml`
+
+Configure `k8s/order-secret.yaml` using `k8s/order-secret.yaml.example`.
+
+
+### 2. Build the Docker image
+
+Build the `order-service` image:
+
+```shell
+docker build -t order-service:latest .
+```
+
+Docker Desktop Kubernetes can use the locally built image, so no image loading step is required.
+
+### 3. Run `dry-run`
+
+Validate the Kubernetes manifests on the client side:
+
+```shell
+kubectl apply -f k8s/. --dry-run=client
+```
+
+Validate the manifests against the Kubernetes API server:
+
+```shell
+kubectl apply -f k8s/. --dry-run=server
+```
+
+### 4. Apply the Kubernetes manifests
+
+Deploy the database, service, ConfigMap, Secret, and other Kubernetes resources:
+
+```shell
+kubectl apply -f k8s/.
+```
+
+### 5. Check the pods
+
+Check the status of the deployed pods:
+
+```shell
+kubectl get pods
+```
+
+The expected result is two `order-service` replicas and one `order-db` pod in the `Running` state.
+
+### 6. Check the deployment
+
+```shell
+kubectl get deployment order-service
+```
+
+The `READY` value should be `2/2`.
+
+### 7. Port-forward the service
+
+To access the `order-service` from the host machine:
+
+```shell
+kubectl port-forward svc/order-service 8085:8080
+```
+
+The service is then available at:
+
+```text
+http://localhost:8085
+```
+
+For example, the health endpoint can be checked at:
+
+```text
+http://localhost:8084/actuator/health
+```
+
+
 ## API
 
 The Payment Service is available at:
 
 ```text
-http://localhost:8082
+http://localhost:<chosem port>
 ```
 
 ### Create a Payment
@@ -59,7 +137,7 @@ http://localhost:8082
 Test request:
 
 ```http
-POST http://localhost:8082/payment
+POST http://localhost:8084/payment
 Content-Type: application/json
 ```
 
@@ -85,7 +163,7 @@ Expected response:
 **GET** `/payment`
 
 ```text
-GET http://localhost:8082/payment
+GET http://localhost:8084/payment
 ```
 
 ### Get Payment by ID
@@ -93,7 +171,7 @@ GET http://localhost:8082/payment
 **GET** `/payment/{id}`
 
 ```text
-GET http://localhost:8082/payment/1
+GET http://localhost:8084/payment/1
 ```
 
 ### Get Non-Existing Payment
@@ -101,7 +179,7 @@ GET http://localhost:8082/payment/1
 **GET** `/payment/{id}`
 
 ```text
-GET http://localhost:8082/payment/999
+GET http://localhost:8084/payment/999
 ```
 
 If the payment does not exist, the service returns:
@@ -121,7 +199,7 @@ with HTTP status:
 **PUT** `/payment/{id}`
 
 ```http
-PUT http://localhost:8082/payment/1
+PUT http://localhost:8084/payment/1
 Content-Type: application/json
 ```
 
@@ -136,7 +214,7 @@ Content-Type: application/json
 **DELETE** `/payment/{id}`
 
 ```text
-DELETE http://localhost:8082/payment/1
+DELETE http://localhost:8084/payment/1
 ```
 
 ## Database
@@ -168,7 +246,7 @@ The PostgreSQL data should survive container restarts.
 Send a `POST /payment` request:
 
 ```http
-POST http://localhost:8082/payment
+POST http://localhost:8084/payment
 ```
 
 ```json
@@ -184,7 +262,7 @@ Note the returned payment ID.
 Send:
 
 ```text
-GET http://localhost:8082/payment
+GET http://localhost:8084/payment
 ```
 
 Make sure the newly created payment is present.
@@ -216,7 +294,7 @@ The `payment-db` container should eventually show a **healthy** status.
 Send:
 
 ```text
-GET http://localhost:8082/payment
+GET http://localhost:8084/payment
 ```
 
 The payment created before the restart should still be present.
