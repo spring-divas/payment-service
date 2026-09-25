@@ -46,17 +46,17 @@ docker compose logs -f payment-service
 
 ## Running with Kubernetes
 
-### 1. Configure `order-secret.yaml`
+### 1. Configure `payment-secret.yaml`
 
-Configure `k8s/order-secret.yaml` using `k8s/order-secret.yaml.example`.
+Configure `k8s/payment-secret.yaml` using `k8s/payment-secret.yaml.example`.
 
 
 ### 2. Build the Docker image
 
-Build the `order-service` image:
+Build the `payment-service` image:
 
 ```shell
-docker build -t order-service:latest .
+docker build -t payment-service:latest .
 ```
 
 Docker Desktop Kubernetes can use the locally built image, so no image loading step is required.
@@ -91,28 +91,28 @@ Check the status of the deployed pods:
 kubectl get pods
 ```
 
-The expected result is two `order-service` replicas and one `order-db` pod in the `Running` state.
+The expected result is two `payment-service` replicas and one `payment-db` pod in the `Running` state.
 
 ### 6. Check the deployment
 
 ```shell
-kubectl get deployment order-service
+kubectl get deployment payment-service
 ```
 
 The `READY` value should be `2/2`.
 
 ### 7. Port-forward the service
 
-To access the `order-service` from the host machine:
+To access the `payment-service` from the host machine:
 
 ```shell
-kubectl port-forward svc/order-service 8085:8080
+kubectl port-forward svc/payment-service 8084:8080
 ```
 
 The service is then available at:
 
 ```text
-http://localhost:8085
+http://localhost:8084
 ```
 
 For example, the health endpoint can be checked at:
