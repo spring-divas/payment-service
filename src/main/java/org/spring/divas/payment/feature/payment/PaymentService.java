@@ -4,7 +4,7 @@ import java.util.List;
 
 public interface PaymentService {
 
-    PaymentResponseDto create(PaymentRequestDto dto);
+    PaymentResponseDto create(PaymentRequestDto dto, String idempotencyKey);
 
     List<PaymentResponseDto> getAll();
 

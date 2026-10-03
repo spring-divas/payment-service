@@ -11,5 +11,6 @@ public interface PaymentMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "status", constant = "PENDING")
     @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "idempotencyKey", ignore = true)
     Payment toEntity(PaymentRequestDto request);
 }

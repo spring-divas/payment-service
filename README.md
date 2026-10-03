@@ -118,7 +118,7 @@ http://localhost:8084
 For example, the health endpoint can be checked at:
 
 ```text
-http://localhost:8084/actuator/health
+http://localhost:8084/api/actuator/health
 ```
 
 
@@ -127,7 +127,7 @@ http://localhost:8084/actuator/health
 The Payment Service is available at:
 
 ```text
-http://localhost:<chosem port>
+http://localhost:<chosem port>/api
 ```
 
 ### Create a Payment
@@ -137,7 +137,9 @@ http://localhost:<chosem port>
 Test request:
 
 ```http
-POST http://localhost:8084/payment
+POST http://localhost:8084/api/payment
+Idempotency-Key: payment-order-1
+X-Correlation-Id: 550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 ```
 
@@ -160,26 +162,26 @@ Expected response:
 
 ### Get All Payments
 
-**GET** `/payment`
+**GET** `/api/payment`
 
 ```text
-GET http://localhost:8084/payment
+GET http://localhost:8084/api/payment
 ```
 
 ### Get Payment by ID
 
-**GET** `/payment/{id}`
+**GET** `/api/payment/{id}`
 
 ```text
-GET http://localhost:8084/payment/1
+GET http://localhost:8084/api/payment/1
 ```
 
 ### Get Non-Existing Payment
 
-**GET** `/payment/{id}`
+**GET** `/api/payment/{id}`
 
 ```text
-GET http://localhost:8084/payment/999
+GET http://localhost:8084/api/payment/999
 ```
 
 If the payment does not exist, the service returns:
@@ -196,10 +198,10 @@ with HTTP status:
 
 ### Update a Payment
 
-**PUT** `/payment/{id}`
+**PUT** `/api/payment/{id}`
 
 ```http
-PUT http://localhost:8084/payment/1
+PUT http://localhost:8084/api/payment/1
 Content-Type: application/json
 ```
 
@@ -211,10 +213,10 @@ Content-Type: application/json
 
 ### Delete a Payment
 
-**DELETE** `/payment/{id}`
+**DELETE** `/api/payment/{id}`
 
 ```text
-DELETE http://localhost:8084/payment/1
+DELETE http://localhost:8084/api/payment/1
 ```
 
 ## Database
@@ -246,7 +248,7 @@ The PostgreSQL data should survive container restarts.
 Send a `POST /payment` request:
 
 ```http
-POST http://localhost:8084/payment
+POST http://localhost:8084/api/payment
 ```
 
 ```json
