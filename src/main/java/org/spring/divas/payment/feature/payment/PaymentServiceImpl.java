@@ -13,10 +13,16 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentMapper paymentMapper;
 
     @Override
-    public PaymentResponseDto create(PaymentRequestDto dto) {
-        Payment payment = paymentMapper.toEntity(dto);
-        Payment saved = paymentRepository.save(payment);
-        return paymentMapper.toResponse(saved);
+    public PaymentResponseDto create(PaymentRequestDto dto, String idempotencyKey) {
+
+        return paymentRepository.findByIdempotencyKey(idempotencyKey)
+                .map(paymentMapper::toResponse)
+                .orElseGet(() -> {
+                    Payment payment = paymentMapper.toEntity(dto);
+                    payment.setIdempotencyKey(idempotencyKey);
+                    Payment saved = paymentRepository.save(payment);
+                    return paymentMapper.toResponse(saved);
+                });
     }
 
     @Override

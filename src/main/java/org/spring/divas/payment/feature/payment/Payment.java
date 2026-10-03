@@ -30,4 +30,6 @@ public class Payment {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false, unique = true)
+    private String idempotencyKey;
 }

@@ -15,14 +15,23 @@ import java.util.List;
 public class PaymentController {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
-
     private final PaymentService paymentService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public PaymentResponseDto create(@Valid @RequestBody PaymentRequestDto dto) {
-        log.info("Received payment creation request for orderId={}", dto.getOrderId());
-        return paymentService.create(dto);
+    public PaymentResponseDto create(@Valid @RequestBody PaymentRequestDto dto,
+                                     @RequestHeader("Idempotency-Key") String idempotencyKey) {
+
+        if (idempotencyKey.isBlank()) {
+            throw new InvalidIdempotencyKeyException();
+        }
+        log.info(
+                "Received payment creation request for orderId={}, idempotencyKey={}",
+                dto.getOrderId(),
+                idempotencyKey
+        );
+
+        return paymentService.create(dto, idempotencyKey);
     }
 
     @GetMapping
