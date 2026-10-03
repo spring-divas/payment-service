@@ -1,13 +1,17 @@
 package org.spring.divas.payment.feature.payment;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.Instant;
+import java.net.URI;
 
 @RestControllerAdvice
 public class PaymentExceptionHandler {
@@ -70,5 +74,17 @@ public class PaymentExceptionHandler {
         problem.setProperty("timestamp", Instant.now());
 
         return problem;
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ProblemDetail> handleMissingRequestHeader(MissingRequestHeaderException ex,
+                                                                    HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        problem.setTitle("Missing Request Header");
+        problem.setDetail("Required request header '" + ex.getHeaderName() + "' is missing.");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(problem);
     }
 }
