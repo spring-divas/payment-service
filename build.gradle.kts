@@ -30,6 +30,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	implementation("org.springframework.boot:spring-boot-starter-kafka")
 
 	implementation("org.mapstruct:mapstruct:1.6.3")
 	annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
@@ -47,6 +48,7 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testAnnotationProcessor("org.projectlombok:lombok")
 	testImplementation("com.h2database:h2")
+	testImplementation("org.springframework.kafka:spring-kafka-test")
 }
 
 tasks.withType<Test> {
