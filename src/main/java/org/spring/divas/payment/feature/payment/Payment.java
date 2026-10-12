@@ -18,7 +18,7 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "order_id", nullable = false)
+    @Column(name = "order_id", nullable = false, unique = true)
     private Long orderId;
 
     @Enumerated(EnumType.STRING)
@@ -30,6 +30,6 @@ public class Payment {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "idempotency_key", nullable = false, unique = true)
     private String idempotencyKey;
 }
