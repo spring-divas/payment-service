@@ -1,5 +1,6 @@
 package org.spring.divas.payment.feature.payment;
 
+import io.micrometer.observation.annotation.Observed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ public class OrderCreatedProcessingService {
     private final PaymentRepository paymentRepository;
     private final ProcessedEventRepository processedEventRepository;
 
+    @Observed(name = "payment.order-created.processing", contextualName = "process-order-created")
     @Transactional
     public void process(OrderCreatedEvent event) {
         if (event.eventId() == null || event.orderId() == null) {
