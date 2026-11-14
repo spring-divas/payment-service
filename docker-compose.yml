@@ -32,6 +32,7 @@ services:
 
     ports:
       - "${SERVER_HOST_PORT}:8080"
+      - "9090:9090"
 
     environment:
       DB_HOST: ${DB_HOST}
