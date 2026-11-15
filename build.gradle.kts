@@ -1,8 +1,11 @@
+import com.google.protobuf.gradle.id
+
 plugins {
 	java
 	checkstyle
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("com.google.protobuf") version "0.9.6"
 }
 
 group = "org.spring.divas"
@@ -34,6 +37,14 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-kafka")
 	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 
+	// gRPC Server dependencies (Spring Boot 4.1 native gRPC)
+	implementation("org.springframework.boot:spring-boot-starter-grpc-server")
+	implementation("io.grpc:grpc-services")
+	implementation("io.grpc:grpc-protobuf")
+	implementation("io.grpc:grpc-stub")
+	implementation("com.google.protobuf:protobuf-java:4.36.2")
+	compileOnly("jakarta.annotation:jakarta.annotation-api")
+
 	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 
 	implementation("org.mapstruct:mapstruct:1.6.3")
@@ -48,11 +59,30 @@ dependencies {
 
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.boot:spring-boot-starter-grpc-server-test")
 	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testAnnotationProcessor("org.projectlombok:lombok")
 	testImplementation("com.h2database:h2")
 	testImplementation("org.springframework.kafka:spring-kafka-test")
+}
+
+protobuf {
+	protoc {
+		artifact = "com.google.protobuf:protoc:4.36.2"
+	}
+	plugins {
+		id("grpc") {
+			artifact = "io.grpc:protoc-gen-grpc-java:1.84.1"
+		}
+	}
+	generateProtoTasks {
+		all().forEach { task ->
+			task.plugins {
+				// By default, plugins registered above are applied, or we can configure them
+			}
+		}
+	}
 }
 
 tasks.withType<Test> {

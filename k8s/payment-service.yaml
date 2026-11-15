@@ -36,7 +36,10 @@ spec:
                 - ALL
 
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
+            - name: grpc
+              containerPort: 9090
 
           envFrom:
             - configMapRef:
@@ -100,5 +103,9 @@ spec:
     app: payment-service
 
   ports:
-    - port: 8080
+    - name: http
+      port: 8080
       targetPort: 8080
+    - name: grpc
+      port: 9090
+      targetPort: 9090
