@@ -65,6 +65,7 @@ dependencies {
 	testAnnotationProcessor("org.projectlombok:lombok")
 	testImplementation("com.h2database:h2")
 	testImplementation("org.springframework.kafka:spring-kafka-test")
+	testImplementation("au.com.dius.pact.consumer:junit5:4.7.5")
 }
 
 protobuf {
@@ -87,4 +88,8 @@ protobuf {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	systemProperty(
+		"pact.rootDir",
+		System.getProperty("pact.rootDir", project.file("../common/contract/pact").absolutePath)
+	)
 }
