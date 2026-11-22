@@ -39,6 +39,9 @@ class PaymentRateLimiterIntegrationTest {
                 .andExpect(jsonPath("$.status").value(429))
                 .andExpect(jsonPath("$.title").value("Too Many Requests"));
 
+        mockMvc.perform(get("/actuator-other"))
+                .andExpect(status().isTooManyRequests());
+
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().is(not(HttpStatus.TOO_MANY_REQUESTS.value())));
 
