@@ -24,7 +24,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 @Slf4j
 @GrpcService
 @RequiredArgsConstructor
@@ -54,234 +53,261 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
     @Override
     public StreamObserver<PaymentStreamRequest> processPaymentStream(
             StreamObserver<PaymentStreamResponse> responseObserver) {
-
         log.info("[gRPC Bidirectional] New payment stream opened");
+        return new PaymentStreamObserver(responseObserver);
+    }
 
-        return new StreamObserver<>() {
-            private Long currentOrderId;
-            private Long currentPaymentId;
-            private boolean simulateFailure;
-            private int attemptCount = 0;
+    private class PaymentStreamObserver implements StreamObserver<PaymentStreamRequest> {
 
-            @Override
-            public void onNext(PaymentStreamRequest request) {
-                if (Context.current().isCancelled()) {
-                    log.warn("[gRPC] Client cancelled call or deadline exceeded");
-                    return;
-                }
+        private final StreamObserver<PaymentStreamResponse> responseObserver;
+        private final Object responseLock = new Object();
 
-                switch (request.getRequestPayloadCase()) {
-                    case ORDER_INFO -> handleOrderInfo(request.getOrderInfo());
-                    case CONFIRMATION -> handleConfirmation(request.getConfirmation());
-                    case CANCELLATION -> handleCancellation(request.getCancellation());
-                    case REQUESTPAYLOAD_NOT_SET ->
-                            log.warn("[gRPC] Received empty payload");
-                    default ->
-                            log.warn("[gRPC] Unknown message type");
-                }
+        private Long currentOrderId;
+        private Long currentPaymentId;
+        private boolean simulateFailure;
+        private int attemptCount = 0;
+
+        PaymentStreamObserver(StreamObserver<PaymentStreamResponse> responseObserver) {
+            this.responseObserver = responseObserver;
+        }
+
+        @Override
+        public void onNext(PaymentStreamRequest request) {
+            if (Context.current().isCancelled()) {
+                log.warn("[gRPC] Client cancelled call or deadline exceeded");
+                return;
             }
 
-            @Override
-            public void onError(Throwable t) {
-                log.warn("[gRPC] Client stream error: {}", t.getMessage());
+            switch (request.getRequestPayloadCase()) {
+                case ORDER_INFO -> handleOrderInfo(request.getOrderInfo());
+                case CONFIRMATION -> handleConfirmation(request.getConfirmation());
+                case CANCELLATION -> handleCancellation(request.getCancellation());
+                case REQUESTPAYLOAD_NOT_SET -> log.warn("[gRPC] Received empty payload");
+                default -> log.warn("[gRPC] Unknown message type");
+            }
+        }
+
+        @Override
+        public void onError(Throwable t) {
+            log.warn("[gRPC] Client stream error: {}", t.getMessage());
+        }
+
+        @Override
+        public void onCompleted() {
+            log.info("[gRPC Bidirectional] Client completed stream.");
+            responseObserver.onCompleted();
+        }
+
+        private void handleOrderInfo(OrderPaymentInfo info) {
+            this.currentOrderId = info.getOrderId();
+            this.simulateFailure = info.getSimulateFailure();
+
+            log.info("[gRPC Step 1] Received order: orderId={}, amount={} {}",
+                    currentOrderId,
+                    PaymentProtoMapper.toBigDecimal(info.getAmount()),
+                    info.getAmount().getCurrencyCode());
+
+            if (shouldSimulateUnavailable(info)) {
+                log.warn("[gRPC Server] Simulating UNAVAILABLE status for retry testing");
+                responseObserver.onError(Status.UNAVAILABLE
+                        .withDescription("Payment service temporarily unavailable")
+                        .asRuntimeException());
+                return;
             }
 
-            @Override
-            public void onCompleted() {
-                log.info("[gRPC Bidirectional] Client completed stream.");
-                responseObserver.onCompleted();
-            }
+            createPendingPayment(info);
+            sendPendingResponse();
+        }
 
-            private void handleOrderInfo(OrderPaymentInfo info) {
-                this.currentOrderId = info.getOrderId();
-                this.simulateFailure = info.getSimulateFailure();
+        private boolean shouldSimulateUnavailable(OrderPaymentInfo info) {
+            return info.getSimulateUnavailable()
+                    || transientFailuresRemaining.getAndDecrement() > 0;
+        }
 
-                log.info("[gRPC Step 1] Received order: orderId={}, amount={} {}",
-                        currentOrderId,
-                        PaymentProtoMapper.toBigDecimal(info.getAmount()),
-                        info.getAmount().getCurrencyCode());
+        private void createPendingPayment(OrderPaymentInfo info) {
+            transactionTemplate.executeWithoutResult(status -> {
+                BigDecimal totalAmount = PaymentProtoMapper.toBigDecimal(info.getAmount());
+                String idempotencyKey = info.getIdempotencyKey().isBlank()
+                        ? "order-" + currentOrderId
+                        : info.getIdempotencyKey();
 
-                // Simulate transient unavailability (UNAVAILABLE) for retry testing
-                if (info.getSimulateUnavailable()
-                        || transientFailuresRemaining.getAndDecrement() > 0) {
-                    log.warn("[gRPC Server] Simulating UNAVAILABLE status for retry testing");
-                    responseObserver.onError(Status.UNAVAILABLE
-                            .withDescription("Payment service temporarily unavailable")
-                            .asRuntimeException());
-                    return;
-                }
-
-                // Step 2: Payment creates transaction and first payment attempt
-                transactionTemplate.executeWithoutResult(status -> {
-                    BigDecimal totalAmount = PaymentProtoMapper.toBigDecimal(info.getAmount());
-
-                    Payment payment = paymentRepository.findByOrderId(currentOrderId)
-                            .orElseGet(() -> Payment.builder()
-                                    .orderId(currentOrderId)
-                                    .amount(totalAmount)
-                                    .status(PaymentStatus.PENDING)
-                                    .idempotencyKey(info.getIdempotencyKey().isBlank()
-                                            ? "order-" + currentOrderId
-                                            : info.getIdempotencyKey())
-                                    .build());
-
-                    payment.setStatus(PaymentStatus.PENDING);
-                    payment = paymentRepository.save(payment);
-                    currentPaymentId = payment.getId();
-
-                    List<PaymentAttempt> existing = paymentAttemptRepository
-                            .findByPaymentIdOrderByAttemptNumberAsc(payment.getId());
-                    attemptCount = existing.size() + 1;
-
-                    PaymentAttempt attempt = PaymentAttempt.builder()
-                            .payment(payment)
-                            .orderId(currentOrderId)
-                            .attemptNumber(attemptCount)
-                            .status(PaymentStatus.PENDING)
-                            .createdAt(LocalDateTime.now())
-                            .build();
-
-                    paymentAttemptRepository.save(attempt);
-                    log.info("[gRPC Step 2] Created payment id={} and attempt #{}",
-                            payment.getId(), attemptCount);
-                });
-
-                // Step 3: Payment sends PENDING
-                PaymentStreamResponse pendingResponse = PaymentStreamResponse.newBuilder()
-                        .setPaymentId(currentPaymentId)
-                        .setOrderId(currentOrderId)
-                        .setStatus(org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PENDING)
-                        .setMessage("Payment created in PENDING status, awaiting confirmation.")
-                        .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
-                        .setAttemptNumber(attemptCount)
-                        .setRequiresConfirmation(true)
-                        .build();
-
-                log.info("[gRPC Step 3] Sent PENDING for orderId={}", currentOrderId);
-                sendResponse(pendingResponse);
-            }
-
-            private void handleConfirmation(PaymentConfirmation confirmation) {
-                log.info("[gRPC Step 4] Received confirmation from Order: confirmed={}",
-                        confirmation.getConfirmed());
-
-                if (!confirmation.getConfirmed()) {
-                    log.warn("[gRPC Step 4] Received negative confirmation");
-                    return;
-                }
-
-                // Step 5: Payment processes operation and sends PAID or FAILED
-                org.spring.divas.payment.v1.PaymentStatus finalStatus;
-                String failureReason = null;
-                String responseMessage;
-
-                if (simulateFailure) {
-                    finalStatus = org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_FAILED;
-                    failureReason = "Payment declined: Insufficient funds or issuer declined";
-                    responseMessage = "Payment declined by acquirer";
-                } else {
-                    finalStatus = org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PAID;
-                    responseMessage = "Payment successfully confirmed by banking system";
-                }
-
-                String finalReason = failureReason;
-                transactionTemplate.executeWithoutResult(status -> {
-                    Payment payment = paymentRepository.findById(currentPaymentId).orElse(null);
-                    if (payment != null) {
-                        PaymentStatus domainStatus = (finalStatus
-                                == org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PAID)
-                                ? PaymentStatus.PAID : PaymentStatus.FAILED;
-
-                        payment.setStatus(domainStatus);
-                        paymentRepository.save(payment);
-
-                        PaymentAttempt attempt = PaymentAttempt.builder()
-                                .payment(payment)
+                Payment payment = paymentRepository.findByOrderId(currentOrderId)
+                        .orElseGet(() -> Payment.builder()
                                 .orderId(currentOrderId)
-                                .attemptNumber(attemptCount)
-                                .status(domainStatus)
-                                .failureReason(finalReason)
-                                .createdAt(LocalDateTime.now())
-                                .build();
+                                .amount(totalAmount)
+                                .status(PaymentStatus.PENDING)
+                                .idempotencyKey(idempotencyKey)
+                                .build());
 
-                        paymentAttemptRepository.save(attempt);
-                        log.info("[gRPC Step 5] Payment paymentId={} status={}",
-                                currentPaymentId, domainStatus);
-                    }
-                });
+                payment.setStatus(PaymentStatus.PENDING);
+                payment = paymentRepository.save(payment);
+                currentPaymentId = payment.getId();
 
-                PaymentStreamResponse.Builder responseBuilder = PaymentStreamResponse.newBuilder()
-                        .setPaymentId(currentPaymentId)
-                        .setOrderId(currentOrderId)
-                        .setStatus(finalStatus)
-                        .setMessage(responseMessage)
-                        .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
-                        .setAttemptNumber(attemptCount)
-                        .setRequiresConfirmation(false);
+                List<PaymentAttempt> existing = paymentAttemptRepository
+                        .findByPaymentIdOrderByAttemptNumberAsc(payment.getId());
+                attemptCount = existing.size() + 1;
 
-                if (failureReason != null) {
-                    responseBuilder.setFailureReason(failureReason);
-                }
-
-                PaymentStreamResponse finalResponse = responseBuilder.build();
-                log.info("[gRPC Step 5] Sent result {} for orderId={}",
-                        finalStatus, currentOrderId);
-                sendResponse(finalResponse);
-            }
-
-            private void handleCancellation(OrderCancellation cancellation) {
-                log.info("[gRPC Step 7] Received cancellation from Order: orderId={}, reason='{}'",
-                        cancellation.getOrderId(), cancellation.getReason());
-
-                transactionTemplate.executeWithoutResult(status -> {
-                    Payment payment = paymentRepository.findByOrderId(cancellation.getOrderId())
-                            .orElse(null);
-
-                    if (payment != null) {
-                        payment.setStatus(PaymentStatus.CANCELLED);
-                        paymentRepository.save(payment);
-
-                        List<PaymentAttempt> existing = paymentAttemptRepository
-                                .findByPaymentIdOrderByAttemptNumberAsc(payment.getId());
-                        int nextAttempt = existing.size() + 1;
-
-                        PaymentAttempt cancelAttempt = PaymentAttempt.builder()
-                                .payment(payment)
-                                .orderId(cancellation.getOrderId())
-                                .attemptNumber(nextAttempt)
-                                .status(PaymentStatus.CANCELLED)
-                                .failureReason("Order cancelled: " + cancellation.getReason())
-                                .createdAt(LocalDateTime.now())
-                                .build();
-
-                        paymentAttemptRepository.save(cancelAttempt);
-                        currentPaymentId = payment.getId();
-                        attemptCount = nextAttempt;
-                        log.info("[gRPC Step 7] Payment paymentId={} cancelled", payment.getId());
-                    }
-                });
-
-                Long resolvedPaymentId = currentPaymentId != null
-                        ? currentPaymentId : cancellation.getPaymentId();
-
-                PaymentStreamResponse cancelResponse = PaymentStreamResponse.newBuilder()
-                        .setPaymentId(resolvedPaymentId)
-                        .setOrderId(cancellation.getOrderId())
-                        .setStatus(org.spring.divas.payment.v1.PaymentStatus
-                                .PAYMENT_STATUS_CANCELLED)
-                        .setMessage("Payment cancelled as requested by Order.")
-                        .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
-                        .setAttemptNumber(attemptCount)
+                PaymentAttempt attempt = PaymentAttempt.builder()
+                        .payment(payment)
+                        .orderId(currentOrderId)
+                        .attemptNumber(attemptCount)
+                        .status(PaymentStatus.PENDING)
+                        .createdAt(LocalDateTime.now())
                         .build();
 
-                sendResponse(cancelResponse);
+                paymentAttemptRepository.save(attempt);
+                log.info("[gRPC Step 2] Created payment id={} and attempt #{}",
+                        payment.getId(), attemptCount);
+            });
+        }
+
+        private void sendPendingResponse() {
+            PaymentStreamResponse pendingResponse = PaymentStreamResponse.newBuilder()
+                    .setPaymentId(currentPaymentId)
+                    .setOrderId(currentOrderId)
+                    .setStatus(org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PENDING)
+                    .setMessage("Payment created in PENDING status, awaiting confirmation.")
+                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
+                    .setAttemptNumber(attemptCount)
+                    .setRequiresConfirmation(true)
+                    .build();
+
+            log.info("[gRPC Step 3] Sent PENDING for orderId={}", currentOrderId);
+            sendResponse(pendingResponse);
+        }
+
+        private void handleConfirmation(PaymentConfirmation confirmation) {
+            log.info("[gRPC Step 4] Received confirmation from Order: confirmed={}",
+                    confirmation.getConfirmed());
+
+            if (!confirmation.getConfirmed()) {
+                log.warn("[gRPC Step 4] Received negative confirmation");
+                return;
             }
 
-            private void sendResponse(PaymentStreamResponse response) {
-                synchronized (responseObserver) {
-                    responseObserver.onNext(response);
+            org.spring.divas.payment.v1.PaymentStatus finalStatus = simulateFailure
+                    ? org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_FAILED
+                    : org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PAID;
+            String failureReason = simulateFailure
+                    ? "Payment declined: Insufficient funds or issuer declined"
+                    : null;
+            String responseMessage = simulateFailure
+                    ? "Payment declined by acquirer"
+                    : "Payment successfully confirmed by banking system";
+
+            updateConfirmedPayment(finalStatus, failureReason);
+            sendConfirmationResponse(finalStatus, responseMessage, failureReason);
+        }
+
+        private void updateConfirmedPayment(org.spring.divas.payment.v1.PaymentStatus finalStatus,
+                                            String failureReason) {
+            transactionTemplate.executeWithoutResult(status -> {
+                Payment payment = paymentRepository.findById(currentPaymentId).orElse(null);
+                if (payment == null) {
+                    return;
                 }
+                PaymentStatus domainStatus = (finalStatus
+                        == org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PAID)
+                        ? PaymentStatus.PAID : PaymentStatus.FAILED;
+
+                payment.setStatus(domainStatus);
+                paymentRepository.save(payment);
+
+                PaymentAttempt attempt = PaymentAttempt.builder()
+                        .payment(payment)
+                        .orderId(currentOrderId)
+                        .attemptNumber(attemptCount)
+                        .status(domainStatus)
+                        .failureReason(failureReason)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+                paymentAttemptRepository.save(attempt);
+                log.info("[gRPC Step 5] Payment paymentId={} status={}",
+                        currentPaymentId, domainStatus);
+            });
+        }
+
+        private void sendConfirmationResponse(org.spring.divas.payment.v1.PaymentStatus finalStatus,
+                                              String responseMessage,
+                                              String failureReason) {
+            PaymentStreamResponse.Builder responseBuilder = PaymentStreamResponse.newBuilder()
+                    .setPaymentId(currentPaymentId)
+                    .setOrderId(currentOrderId)
+                    .setStatus(finalStatus)
+                    .setMessage(responseMessage)
+                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
+                    .setAttemptNumber(attemptCount)
+                    .setRequiresConfirmation(false);
+
+            if (failureReason != null) {
+                responseBuilder.setFailureReason(failureReason);
             }
-        };
+
+            PaymentStreamResponse finalResponse = responseBuilder.build();
+            log.info("[gRPC Step 5] Sent result {} for orderId={}", finalStatus, currentOrderId);
+            sendResponse(finalResponse);
+        }
+
+        private void handleCancellation(OrderCancellation cancellation) {
+            log.info("[gRPC Step 7] Received cancellation from Order: orderId={}, reason='{}'",
+                    cancellation.getOrderId(), cancellation.getReason());
+
+            processCancellationTransaction(cancellation);
+            sendCancellationResponse(cancellation);
+        }
+
+        private void processCancellationTransaction(OrderCancellation cancellation) {
+            transactionTemplate.executeWithoutResult(status -> {
+                Payment payment = paymentRepository.findByOrderId(cancellation.getOrderId())
+                        .orElse(null);
+
+                if (payment == null) {
+                    return;
+                }
+                payment.setStatus(PaymentStatus.CANCELLED);
+                paymentRepository.save(payment);
+
+                List<PaymentAttempt> existing = paymentAttemptRepository
+                        .findByPaymentIdOrderByAttemptNumberAsc(payment.getId());
+                int nextAttempt = existing.size() + 1;
+
+                PaymentAttempt cancelAttempt = PaymentAttempt.builder()
+                        .payment(payment)
+                        .orderId(cancellation.getOrderId())
+                        .attemptNumber(nextAttempt)
+                        .status(PaymentStatus.CANCELLED)
+                        .failureReason("Order cancelled: " + cancellation.getReason())
+                        .createdAt(LocalDateTime.now())
+                        .build();
+
+                paymentAttemptRepository.save(cancelAttempt);
+                currentPaymentId = payment.getId();
+                attemptCount = nextAttempt;
+                log.info("[gRPC Step 7] Payment paymentId={} cancelled", payment.getId());
+            });
+        }
+
+        private void sendCancellationResponse(OrderCancellation cancellation) {
+            Long resolvedPaymentId = currentPaymentId != null
+                    ? currentPaymentId : cancellation.getPaymentId();
+
+            PaymentStreamResponse cancelResponse = PaymentStreamResponse.newBuilder()
+                    .setPaymentId(resolvedPaymentId)
+                    .setOrderId(cancellation.getOrderId())
+                    .setStatus(org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_CANCELLED)
+                    .setMessage("Payment cancelled as requested by Order.")
+                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
+                    .setAttemptNumber(attemptCount)
+                    .build();
+
+            sendResponse(cancelResponse);
+        }
+
+        private void sendResponse(PaymentStreamResponse response) {
+            synchronized (responseLock) {
+                responseObserver.onNext(response);
+            }
+        }
     }
 }
