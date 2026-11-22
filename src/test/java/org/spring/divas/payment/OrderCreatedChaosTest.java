@@ -45,10 +45,15 @@ import static org.awaitility.Awaitility.await;
         "spring.grpc.server.port=0"
 })
 @ActiveProfiles("chaos-monkey")
-@EmbeddedKafka(partitions = 1, topics = {"order-created", "order-created-dlt"})
+@EmbeddedKafka(
+        partitions = 1,
+        topics = {"order-created", "order-created-retry-1000", "order-created-dlt"}
+)
 class OrderCreatedChaosTest {
 
     private static final String TOPIC = "order-created";
+
+    private static final String FIRST_RETRY_TOPIC = "order-created-retry-1000";
 
     private static final String DLT = "order-created-dlt";
 
@@ -102,11 +107,12 @@ class OrderCreatedChaosTest {
         UUID eventId = UUID.randomUUID();
         chaosMonkey.getChaosMonkeyProperties().setEnabled(true);
 
-        send(new OrderCreatedEvent(eventId, 501L, Instant.now()));
+        try (Consumer<String, String> retryConsumer = consumer(FIRST_RETRY_TOPIC)) {
+            send(new OrderCreatedEvent(eventId, 501L, Instant.now()));
 
-        await().during(Duration.ofMillis(1500))
-                .atMost(Duration.ofSeconds(3))
-                .until(() -> paymentRepository.count() == 0);
+            awaitRecord(retryConsumer, eventId.toString());
+        }
+        assertThat(paymentRepository.count()).isZero();
 
         chaosMonkey.getChaosMonkeyProperties().setEnabled(false);
 
@@ -124,7 +130,7 @@ class OrderCreatedChaosTest {
         UUID eventId = UUID.randomUUID();
         chaosMonkey.getChaosMonkeyProperties().setEnabled(true);
 
-        try (Consumer<String, String> dltConsumer = dltConsumer()) {
+        try (Consumer<String, String> dltConsumer = consumer(DLT)) {
             send(new OrderCreatedEvent(eventId, 502L, Instant.now()));
 
             ConsumerRecord<String, String> dltRecord = awaitRecord(dltConsumer, eventId.toString());
@@ -140,15 +146,15 @@ class OrderCreatedChaosTest {
         kafkaTemplate.send(new ProducerRecord<>(TOPIC, event.orderId().toString(), payload)).get();
     }
 
-    private Consumer<String, String> dltConsumer() {
+    private Consumer<String, String> consumer(String topic) {
         Map<String, Object> properties = KafkaTestUtils.consumerProps(
-                embeddedKafka, "chaos-dlt-" + UUID.randomUUID(), false);
+                embeddedKafka, "chaos-" + UUID.randomUUID(), false);
         properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         Consumer<String, String> consumer = new KafkaConsumer<>(properties);
-        embeddedKafka.consumeFromAnEmbeddedTopic(consumer, DLT);
+        embeddedKafka.consumeFromAnEmbeddedTopic(consumer, topic);
         return consumer;
     }
 
