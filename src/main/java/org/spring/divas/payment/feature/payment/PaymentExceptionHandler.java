@@ -1,7 +1,9 @@
 package org.spring.divas.payment.feature.payment;
 
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +45,18 @@ public class PaymentExceptionHandler {
                 "Validation Error",
                 exception.getMessage()
         );
+    }
+
+    @ExceptionHandler(RequestNotPermitted.class)
+    public ResponseEntity<ProblemDetail> handleRateLimitExceeded(RequestNotPermitted exception) {
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, "1")
+                .body(createProblemDetail(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "Too Many Requests",
+                        "Rate limit exceeded. Please try again later."
+                ));
     }
 
     @ExceptionHandler(Exception.class)

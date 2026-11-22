@@ -38,6 +38,7 @@ dependencies {
 	runtimeOnly("org.springframework.boot:spring-boot-restclient")
 	implementation("org.springframework.boot:spring-boot-starter-kafka")
 	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
+	implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
 
 	// gRPC Server dependencies (Spring Boot 4.1 native gRPC)
 	implementation("org.springframework.boot:spring-boot-starter-grpc-server")
