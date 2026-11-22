@@ -46,7 +46,8 @@ dependencies {
 	implementation("de.codecentric:chaos-monkey-spring-boot:4.0.0")
 	runtimeOnly("org.springframework.boot:spring-boot-restclient")
 	implementation("org.springframework.boot:spring-boot-starter-kafka")
-	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 	implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
 
 	// Production dependencies - gRPC Server & Protobuf
