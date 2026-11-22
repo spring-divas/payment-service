@@ -107,3 +107,7 @@ tasks.withType<Test> {
 		System.getProperty("pact.rootDir", project.file("../common/contract/pact").absolutePath)
 	)
 }
+
+tasks.named<Checkstyle>("checkstyleMain"){
+	source = fileTree("src/main/java")
+}

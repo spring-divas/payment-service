@@ -39,6 +39,7 @@ class KafkaTracePropagationTest {
 
     @Autowired
     private Tracer tracer;
+
     @Test
     void shouldContinueTraceFromKafkaHeaders() throws Exception {
         Span parentSpan = tracer.nextSpan()
