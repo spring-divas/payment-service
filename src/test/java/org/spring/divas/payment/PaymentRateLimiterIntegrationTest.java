@@ -8,6 +8,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.net.URI;
+
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -38,6 +40,9 @@ class PaymentRateLimiterIntegrationTest {
                 .andExpect(jsonPath("$.title").value("Too Many Requests"));
 
         mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().is(not(HttpStatus.TOO_MANY_REQUESTS.value())));
+
+        mockMvc.perform(get(URI.create("/%61ctuator/health")))
                 .andExpect(status().is(not(HttpStatus.TOO_MANY_REQUESTS.value())));
     }
 }
