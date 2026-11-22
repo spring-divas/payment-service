@@ -18,8 +18,16 @@ java {
 	}
 }
 
+val checkstyleVersion = "13.7.0"
+val protobufVersion = "4.36.2"
+val grpcVersion = "1.84.1"
+val mapstructVersion = "1.6.3"
+val logstashLogbackEncoderVersion = "9.0"
+val lombokMapstructBindingVersion = "0.2.0"
+val pactVersion = "4.7.5"
+
 checkstyle {
-	toolVersion = "13.7.0"
+	toolVersion = checkstyleVersion
 	configFile = file("checks.xml")
 }
 
@@ -28,6 +36,7 @@ repositories {
 }
 
 dependencies {
+	// Production dependencies - Spring Boot Starters & Framework
 	implementation("org.springframework.boot:spring-boot-starter")
 	implementation("org.springframework.boot:spring-boot-starter-aspectj")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -40,44 +49,49 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 	implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
 
-	// gRPC Server dependencies (Spring Boot 4.1 native gRPC)
+	// Production dependencies - gRPC Server & Protobuf
 	implementation("org.springframework.boot:spring-boot-starter-grpc-server")
 	implementation("io.grpc:grpc-services")
 	implementation("io.grpc:grpc-protobuf")
 	implementation("io.grpc:grpc-stub")
-	implementation("com.google.protobuf:protobuf-java:4.36.2")
+	implementation("com.google.protobuf:protobuf-java:$protobufVersion")
+
+	// Production dependencies - Logging & Utilities
+	implementation("net.logstash.logback:logstash-logback-encoder:$logstashLogbackEncoderVersion")
+	implementation("org.mapstruct:mapstruct:$mapstructVersion")
+
+	// Compile-only dependencies
 	compileOnly("jakarta.annotation:jakarta.annotation-api")
-
-	implementation("net.logstash.logback:logstash-logback-encoder:9.0")
-
-	implementation("org.mapstruct:mapstruct:1.6.3")
-	annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
-
-	annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
-
 	compileOnly("org.projectlombok:lombok")
+
+	// Annotation processors
+	annotationProcessor("org.mapstruct:mapstruct-processor:$mapstructVersion")
+	annotationProcessor("org.projectlombok:lombok-mapstruct-binding:$lombokMapstructBindingVersion")
 	annotationProcessor("org.projectlombok:lombok")
 
+	// Runtime dependencies
 	runtimeOnly("org.postgresql:postgresql")
 
+	// Test dependencies
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-grpc-server-test")
-	testCompileOnly("org.projectlombok:lombok")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-	testAnnotationProcessor("org.projectlombok:lombok")
 	testImplementation("com.h2database:h2")
 	testImplementation("org.springframework.kafka:spring-kafka-test")
-	testImplementation("au.com.dius.pact.consumer:junit5:4.7.5")
+	testImplementation("au.com.dius.pact.consumer:junit5:$pactVersion")
+
+	testCompileOnly("org.projectlombok:lombok")
+	testAnnotationProcessor("org.projectlombok:lombok")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 protobuf {
 	protoc {
-		artifact = "com.google.protobuf:protoc:4.36.2"
+		artifact = "com.google.protobuf:protoc:$protobufVersion"
 	}
 	plugins {
 		id("grpc") {
-			artifact = "io.grpc:protoc-gen-grpc-java:1.84.1"
+			artifact = "io.grpc:protoc-gen-grpc-java:$grpcVersion"
 		}
 	}
 	generateProtoTasks {
@@ -95,4 +109,8 @@ tasks.withType<Test> {
 		"pact.rootDir",
 		System.getProperty("pact.rootDir", project.file("../common/contract/pact").absolutePath)
 	)
+}
+
+tasks.named<Checkstyle>("checkstyleMain"){
+	source = fileTree("src/main/java")
 }

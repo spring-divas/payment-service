@@ -92,7 +92,6 @@ class OrderCreatedConsumerIntegrationTest {
     void permanentlyFailingEventIsSentToDlt() throws Exception {
         OrderCreatedEvent invalidEvent = new OrderCreatedEvent(UUID.randomUUID(), null, Instant.now());
 
-        String payload = objectMapper.writeValueAsString(invalidEvent);
         Map<String, Object> consumerProperties = KafkaTestUtils.consumerProps(
                 embeddedKafka,
                 "dlt-test-" + UUID.randomUUID(),
@@ -108,6 +107,8 @@ class OrderCreatedConsumerIntegrationTest {
         consumerProperties.put(
                 org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                 "earliest");
+
+        String payload = objectMapper.writeValueAsString(invalidEvent);
 
         try (Consumer<String, String> dltConsumer = new KafkaConsumer<>(consumerProperties)) {
             embeddedKafka.consumeFromAnEmbeddedTopic(
@@ -136,9 +137,6 @@ class OrderCreatedConsumerIntegrationTest {
 
     @Test
     void temporaryFailureIsRetriedAndEventuallyProcessed() throws Exception {
-        UUID eventId = UUID.randomUUID();
-        OrderCreatedEvent event = new OrderCreatedEvent(eventId, 456L, Instant.now());
-        String payload = objectMapper.writeValueAsString(event);
 
         AtomicInteger attempts = new AtomicInteger();
 
@@ -158,6 +156,10 @@ class OrderCreatedConsumerIntegrationTest {
         consumerProperties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProperties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         consumerProperties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        UUID eventId = UUID.randomUUID();
+        OrderCreatedEvent event = new OrderCreatedEvent(eventId, 456L, Instant.now());
+        String payload = objectMapper.writeValueAsString(event);
 
         try (Consumer<String, String> dltConsumer = new KafkaConsumer<>(consumerProperties)) {
             embeddedKafka.consumeFromAnEmbeddedTopic(dltConsumer, "order-created-dlt");
