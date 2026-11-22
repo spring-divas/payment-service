@@ -114,10 +114,12 @@ class PaymentGrpcServiceTest {
 
                     @Override
                     public void onError(Throwable t) {
+                        // Stream errors are not expected in success scenario
                     }
 
                     @Override
                     public void onCompleted() {
+                        // Server stream completion acknowledged
                     }
                 }
         );
@@ -146,6 +148,15 @@ class PaymentGrpcServiceTest {
         assertThat(cancelLatch.await(5, TimeUnit.SECONDS)).isTrue();
 
         requestObserver.onCompleted();
+
+        // Verify and consume recorded responses
+        assertThat(responses).hasSize(3);
+        assertThat(responses.stream().map(PaymentStreamResponse::getStatus))
+                .containsExactly(
+                        org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PENDING,
+                        org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PAID,
+                        org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_CANCELLED
+                );
 
         // Verify persistence in Payment and PaymentAttempt
         Payment payment = paymentRepository.findByOrderId(orderId).orElseThrow();
@@ -191,10 +202,12 @@ class PaymentGrpcServiceTest {
 
                     @Override
                     public void onError(Throwable t) {
+                        // Stream errors are not expected in failure status scenario
                     }
 
                     @Override
                     public void onCompleted() {
+                        // Server stream completion acknowledged
                     }
                 }
         );
@@ -243,6 +256,7 @@ class PaymentGrpcServiceTest {
                 new StreamObserver<>() {
                     @Override
                     public void onNext(PaymentStreamResponse response) {
+                        // No successful response expected in transient UNAVAILABLE scenario
                     }
 
                     @Override
@@ -253,6 +267,7 @@ class PaymentGrpcServiceTest {
 
                     @Override
                     public void onCompleted() {
+                        // Server terminates with error rather than completion
                     }
                 }
         );

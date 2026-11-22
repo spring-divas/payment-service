@@ -25,7 +25,7 @@ spec:
 
       containers:
         - name: payment-service
-          image: payment-service:latest
+          image: payment-service:0.0.1-SNAPSHOT
           imagePullPolicy: Never
 
           securityContext:
@@ -41,10 +41,24 @@ spec:
             - name: grpc
               containerPort: 9090
 
-          envFrom:
-            - configMapRef:
-                name: payment-config
+          env:
+            - name: APP_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: APP_ENVIRONMENT
+            - name: OTLP_TRACES_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: OTLP_TRACES_ENDPOINT
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: KAFKA_BOOTSTRAP_SERVERS
 
+          envFrom:
             - secretRef:
                 name: payment-secret
 
@@ -52,9 +66,11 @@ spec:
             requests:
               cpu: 100m
               memory: 384Mi
+              ephemeral-storage: 100Mi
             limits:
               cpu: 500m
               memory: 512Mi
+              ephemeral-storage: 500Mi
 
           startupProbe:
             httpGet:

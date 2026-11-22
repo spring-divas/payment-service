@@ -27,7 +27,7 @@ public class PaymentController {
         }
         log.info(
                 "Received payment creation request for orderId={}, idempotencyKey={}",
-                dto.getOrderId(),
+                dto.orderId(),
                 idempotencyKey
         );
 

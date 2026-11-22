@@ -18,11 +18,13 @@ public class OrderCreatedProcessingService {
     @Transactional
     public void process(OrderCreatedEvent event) {
         if (event.eventId() == null || event.orderId() == null) {
-            throw new IllegalArgumentException("OrderCreatedEvent must contain eventId and orderId");
+            throw new IllegalArgumentException(
+                    "OrderCreatedEvent must contain eventId and orderId");
         }
 
         if (processedEventRepository.existsByEventId(event.eventId())) {
-            log.info("Ignoring duplicate event eventId={}, orderId={}", event.eventId(), event.orderId());
+            log.info("Ignoring duplicate event eventId={}, orderId={}",
+                    event.eventId(), event.orderId());
             return;
         }
 
@@ -41,6 +43,7 @@ public class OrderCreatedProcessingService {
                 .build();
         processedEventRepository.save(processedEvent);
 
-        log.info("Created pending payment for orderId={}, eventId={}", event.orderId(), event.eventId());
+        log.info("Created pending payment for orderId={}, eventId={}",
+                event.orderId(), event.eventId());
     }
 }

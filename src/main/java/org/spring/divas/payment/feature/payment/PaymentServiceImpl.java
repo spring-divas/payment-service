@@ -58,7 +58,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment found = paymentRepository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException(id));
 
-        found.setOrderId(dto.getOrderId());
+        found.setOrderId(dto.orderId());
         Payment saved = paymentRepository.save(found);
         return paymentMapper.toResponse(saved);
     }

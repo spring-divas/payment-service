@@ -31,12 +31,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(KafkaTracePropagationTest.TraceTestConfiguration.class)
 class KafkaTracePropagationTest {
 
-    private static final String TRACE_ID =
-            "1234567890abcdef1234567890abcdef";
-
-    private static final String PARENT_SPAN_ID =
-            "1234567890abcdef";
-
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
@@ -53,7 +47,7 @@ class KafkaTracePropagationTest {
 
         String expectedTraceId = parentSpan.context().traceId();
 
-        try (Tracer.SpanInScope ignored = tracer.withSpan(parentSpan)) {
+        try (var _ = tracer.withSpan(parentSpan)) {
             kafkaTemplate.send(
                     "trace-context-test",
                     "test-key",

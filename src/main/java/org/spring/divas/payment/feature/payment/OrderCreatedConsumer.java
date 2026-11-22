@@ -28,7 +28,8 @@ public class OrderCreatedConsumer {
     )
     public void consume(String payload) throws Exception {
         OrderCreatedEvent event = objectMapper.readValue(payload, OrderCreatedEvent.class);
-        log.info("Received OrderCreatedEvent: eventId={}, orderId={}", event.eventId(), event.orderId());
+        log.info("Received OrderCreatedEvent: eventId={}, orderId={}",
+                event.eventId(), event.orderId());
         processingService.process(event);
     }
 
