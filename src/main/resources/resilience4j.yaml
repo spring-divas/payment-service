@@ -2,6 +2,6 @@ resilience4j:
   ratelimiter:
     instances:
       paymentApi:
-        limit-for-period: 10
+        limit-for-period: 100
         limit-refresh-period: 1s
         timeout-duration: 0s
