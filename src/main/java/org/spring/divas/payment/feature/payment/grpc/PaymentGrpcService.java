@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -28,6 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @GrpcService
 @RequiredArgsConstructor
 public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBase {
+
+    private static ZoneId zoneId = ZoneId.of("Europe/Kyiv");
 
     private final PaymentRepository paymentRepository;
     private final PaymentAttemptRepository paymentAttemptRepository;
@@ -152,7 +155,7 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
                         .orderId(currentOrderId)
                         .attemptNumber(attemptCount)
                         .status(PaymentStatus.PENDING)
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(LocalDateTime.now(zoneId))
                         .build();
 
                 paymentAttemptRepository.save(attempt);
@@ -167,7 +170,7 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
                     .setOrderId(currentOrderId)
                     .setStatus(org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_PENDING)
                     .setMessage("Payment created in PENDING status, awaiting confirmation.")
-                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
+                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now(zoneId)))
                     .setAttemptNumber(attemptCount)
                     .setRequiresConfirmation(true)
                     .build();
@@ -219,7 +222,7 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
                         .attemptNumber(attemptCount)
                         .status(domainStatus)
                         .failureReason(failureReason)
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(LocalDateTime.now(zoneId))
                         .build();
 
                 paymentAttemptRepository.save(attempt);
@@ -236,7 +239,7 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
                     .setOrderId(currentOrderId)
                     .setStatus(finalStatus)
                     .setMessage(responseMessage)
-                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
+                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now(zoneId)))
                     .setAttemptNumber(attemptCount)
                     .setRequiresConfirmation(false);
 
@@ -278,7 +281,7 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
                         .attemptNumber(nextAttempt)
                         .status(PaymentStatus.CANCELLED)
                         .failureReason("Order cancelled: " + cancellation.getReason())
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(LocalDateTime.now(zoneId))
                         .build();
 
                 paymentAttemptRepository.save(cancelAttempt);
@@ -289,7 +292,7 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
         }
 
         private void sendCancellationResponse(OrderCancellation cancellation) {
-            Long resolvedPaymentId = currentPaymentId != null
+            long resolvedPaymentId = currentPaymentId != null
                     ? currentPaymentId : cancellation.getPaymentId();
 
             PaymentStreamResponse cancelResponse = PaymentStreamResponse.newBuilder()
@@ -297,7 +300,7 @@ public class PaymentGrpcService extends PaymentServiceGrpc.PaymentServiceImplBas
                     .setOrderId(cancellation.getOrderId())
                     .setStatus(org.spring.divas.payment.v1.PaymentStatus.PAYMENT_STATUS_CANCELLED)
                     .setMessage("Payment cancelled as requested by Order.")
-                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now()))
+                    .setTimestamp(PaymentProtoMapper.toTimestamp(LocalDateTime.now(zoneId)))
                     .setAttemptNumber(attemptCount)
                     .build();
 

@@ -5,6 +5,7 @@ import org.spring.divas.payment.v1.Money;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 
 public final class PaymentProtoMapper {
@@ -37,7 +38,7 @@ public final class PaymentProtoMapper {
 
     public static Timestamp toTimestamp(LocalDateTime ldt) {
         if (ldt == null) {
-            ldt = LocalDateTime.now();
+            ldt = LocalDateTime.now(ZoneId.of("Europe/Kyiv"));
         }
         long seconds = ldt.toEpochSecond(ZoneOffset.UTC);
         int nanos = ldt.getNano();
