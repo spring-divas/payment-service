@@ -35,7 +35,9 @@ public class JwtSecurityConfig {
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
         while (true) {
             try {
-                HttpRequest request = HttpRequest.newBuilder(URI.create(keyUrl)).timeout(Duration.ofSeconds(5)).GET().build();
+                HttpRequest request = HttpRequest.newBuilder(URI.create(keyUrl))
+                        .timeout(Duration.ofSeconds(5))
+                        .GET().build();
                 String encoded = client.send(request, HttpResponse.BodyHandlers.ofString()).body().trim();
                 byte[] key = Base64.getDecoder().decode(encoded);
                 return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(key));
@@ -57,7 +59,9 @@ public class JwtSecurityConfig {
     @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true", matchIfMissing = true)
     JwtDecoder jwtDecoder(RSAPublicKey jwtPublicKey) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(jwtPublicKey).build();
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefaultWithIssuer("user-service")));
+        decoder.setJwtValidator(
+                new DelegatingOAuth2TokenValidator<>(
+                        JwtValidators.createDefaultWithIssuer("user-service")));
         return decoder;
     }
 
@@ -75,10 +79,14 @@ public class JwtSecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http, @Value("${security.jwt.enabled:true}") boolean jwtEnabled) {
         http.csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
-                    if (jwtEnabled) auth.requestMatchers("/actuator/health/**").permitAll().anyRequest().authenticated();
-                    else auth.anyRequest().permitAll();
+                    if (jwtEnabled) {
+                        auth.requestMatchers("/actuator/health/**").permitAll().anyRequest().authenticated();
+                    } else {
+                        auth.anyRequest().permitAll();
+                    }
                 });
         if (jwtEnabled) {
             http.oauth2ResourceServer(resource ->
