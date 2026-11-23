@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @Entity
@@ -37,7 +38,7 @@ public class ProcessedEvent {
     @PrePersist
     protected void onCreate() {
         if (processedAt == null) {
-            processedAt = LocalDateTime.now();
+            processedAt = LocalDateTime.now(ZoneId.of("Europe/Kyiv"));
         }
     }
 }

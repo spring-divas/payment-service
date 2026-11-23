@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.spring.divas.payment.feature.payment.*;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,13 +42,13 @@ class PaymentServiceImplTest {
                 .orderId(100L)
                 .status(PaymentStatus.PENDING)
                 .idempotencyKey("test-key-1")
-                .createdAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now(ZoneOffset.UTC))
                 .build();
         responseDto = new PaymentResponseDto(1L, 100L, PaymentStatus.PENDING, payment.getCreatedAt());
     }
 
     @Test
-    void create_shouldCreateNewPaymentWhenNotExists() {
+    void shouldCreateNewPaymentWhenNotExists() {
         when(paymentRepository.findByIdempotencyKey("test-key-1")).thenReturn(Optional.empty());
         when(paymentMapper.toEntity(requestDto)).thenReturn(payment);
         when(paymentRepository.save(payment)).thenReturn(payment);
@@ -63,7 +64,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void create_shouldReturnExistingPaymentForSameIdempotencyKey() {
+    void shouldReturnExistingPaymentForSameIdempotencyKey() {
         when(paymentRepository.findByIdempotencyKey("test-key-1")).thenReturn(Optional.of(payment));
         when(paymentMapper.toResponse(payment)).thenReturn(responseDto);
 
@@ -75,7 +76,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void getAll_shouldReturnListOfPayments() {
+    void shouldReturnListOfPayments() {
         when(paymentRepository.findAll()).thenReturn(List.of(payment));
         when(paymentMapper.toResponse(payment)).thenReturn(responseDto);
 
@@ -86,7 +87,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void getById_shouldReturnPaymentWhenFound() {
+    void shouldReturnPaymentWhenFound() {
         when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
         when(paymentMapper.toResponse(payment)).thenReturn(responseDto);
 
@@ -97,7 +98,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void getById_shouldThrowWhenNotFound() {
+    void shouldThrowWhenPaymentNotFoundOnGet() {
         when(paymentRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> paymentService.getById(99L))
@@ -105,7 +106,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void delete_shouldDeleteWhenFound() {
+    void shouldDeletePaymentWhenFound() {
         when(paymentRepository.existsById(1L)).thenReturn(true);
 
         paymentService.delete(1L);
@@ -114,7 +115,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void delete_shouldThrowWhenNotFound() {
+    void shouldThrowWhenPaymentNotFoundOnDelete() {
         when(paymentRepository.existsById(99L)).thenReturn(false);
 
         assertThatThrownBy(() -> paymentService.delete(99L))
@@ -122,7 +123,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void update_shouldUpdateWhenFound() {
+    void shouldUpdatePaymentWhenFound() {
         when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
         when(paymentRepository.save(payment)).thenReturn(payment);
         when(paymentMapper.toResponse(payment)).thenReturn(responseDto);
@@ -134,7 +135,7 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    void update_shouldThrowWhenNotFound() {
+    void shouldThrowWhenPaymentNotFoundOnUpdate() {
         when(paymentRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> paymentService.update(99L, requestDto))
