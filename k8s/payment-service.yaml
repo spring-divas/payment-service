@@ -57,6 +57,11 @@ spec:
                 configMapKeyRef:
                   name: payment-config
                   key: KAFKA_BOOTSTRAP_SERVERS
+            - name: USER_SERVICE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: payment-config
+                  key: USER_SERVICE_URL
 
           envFrom:
             - secretRef:
