@@ -25,6 +25,8 @@ val mapstructVersion = "1.6.3"
 val logstashLogbackEncoderVersion = "9.0"
 val lombokMapstructBindingVersion = "0.2.0"
 val pactVersion = "4.7.5"
+val chaosVersion = "4.0.0"
+val resilience4jVersion = "2.4.0"
 
 checkstyle {
 	toolVersion = checkstyleVersion
@@ -43,12 +45,11 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
-	implementation("de.codecentric:chaos-monkey-spring-boot:4.0.0")
-	runtimeOnly("org.springframework.boot:spring-boot-restclient")
+	implementation("de.codecentric:chaos-monkey-spring-boot:$chaosVersion")
 	implementation("org.springframework.boot:spring-boot-starter-kafka")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
-	implementation("io.github.resilience4j:resilience4j-spring-boot4:2.4.0")
+	implementation("io.github.resilience4j:resilience4j-spring-boot4:$resilience4jVersion")
 
 	// Production dependencies - gRPC Server & Protobuf
 	implementation("org.springframework.boot:spring-boot-starter-grpc-server")
@@ -72,6 +73,7 @@ dependencies {
 
 	// Runtime dependencies
 	runtimeOnly("org.postgresql:postgresql")
+	runtimeOnly("org.springframework.boot:spring-boot-restclient")
 
 	// Test dependencies
 	testImplementation("org.springframework.boot:spring-boot-starter-test")

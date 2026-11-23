@@ -30,7 +30,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class JwtSecurityConfig {
     @Bean
     @ConditionalOnProperty(name = "security.jwt.enabled", havingValue = "true", matchIfMissing = true)
-    RSAPublicKey jwtPublicKey(@Value("${security.jwt.public-key-url}") String keyUrl) throws Exception {
+    RSAPublicKey jwtPublicKey(@Value("${security.jwt.public-key-url}") String keyUrl) throws InterruptedException {
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
         while (true) {
             try {
@@ -38,7 +38,7 @@ public class JwtSecurityConfig {
                 String encoded = client.send(request, HttpResponse.BodyHandlers.ofString()).body().trim();
                 byte[] key = Base64.getDecoder().decode(encoded);
                 return (RSAPublicKey) KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(key));
-            } catch (Exception exception) {
+            } catch (Exception _) {
                 Thread.sleep(3000);
             }
         }
@@ -64,7 +64,7 @@ public class JwtSecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(
-            HttpSecurity http, @Value("${security.jwt.enabled:true}") boolean jwtEnabled) throws Exception {
+            HttpSecurity http, @Value("${security.jwt.enabled:true}") boolean jwtEnabled) {
         http.csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
