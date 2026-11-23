@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -67,6 +68,15 @@ public class GlobalExceptionHandler {
         return createProblemDetail(
                 HttpStatus.BAD_REQUEST,
                 "Validation Error",
+                exception.getMessage()
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(AccessDeniedException exception) {
+        return createProblemDetail(
+                HttpStatus.FORBIDDEN,
+                "Access Denied",
                 exception.getMessage()
         );
     }

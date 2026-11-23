@@ -78,6 +78,7 @@ dependencies {
 	// Test dependencies
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+	testImplementation("org.springframework.security:spring-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-grpc-server-test")
 	testImplementation("com.h2database:h2")
 	testImplementation("org.springframework.kafka:spring-kafka-test")
